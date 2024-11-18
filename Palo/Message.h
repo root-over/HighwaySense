@@ -16,7 +16,7 @@ typedef struct Auto {
 	bool traffico;
 	bool incidente;
 	bool lavori_in_corso;
+        char targa[8];
 } Auto;
 
 #endif
-
