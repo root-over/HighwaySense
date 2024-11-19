@@ -21,7 +21,7 @@ module PaloC{
 
 implementation{
 	const uint32_t PERIOD=200;
-	uint8_t y = 0;
+	uint8_t j = 0;
 	uint16_t myNodeid;
 	bool traffico;
 	bool incidente;
@@ -34,11 +34,11 @@ implementation{
 	Auto* autoCorrente;
 	Auto* numAutoPresenti[NUM_MAX_AUTO];
   
-        const char targhe[NUM_MAX_AUTO][8] = {
-        "AB123CD", "EF456GH", "IJ789KL", "MN012OP", 
-        "QR345ST", "UV678WX", "YZ901AB", "CD234EF",
-        "GH567IJ", "KL890MN"
-        };
+   const char targhe[NUM_MAX_AUTO][8] = {
+   "AB123CD", "EF456GH", "IJ789KL", "MN012OP", 
+   "QR345ST", "UV678WX", "YZ901AB", "CD234EF",
+   "GH567IJ", "KL890MN"
+    };
 	
 	event void Boot.booted(){
 		call Radio.start();
@@ -68,7 +68,6 @@ implementation{
         
 	task void controlloTraffico(){
 		uint8_t i = 0;
-                uint8_t j = 0;
 		//Controllo se lauto corrente e già stata salvata, in questo caso e resente il traffico
 		while (i<NUM_MAX_AUTO || numAutoPresenti[i] != NULL){
 			if ( numAutoPresenti[i]->autoid == autoCorrente->autoid)
@@ -107,7 +106,7 @@ implementation{
 			if (autoCorrente->incidente)//Verifico che lauto non abbia avvertito un incidente
 				incidente = TRUE;
 
-                        printTarga(autoCorrente->autoid);//stampa la targa
+            printTarga(autoCorrente->autoid);//stampa la targa
 			
 			post controlloTraffico();
 			
