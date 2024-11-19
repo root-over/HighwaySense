@@ -7,11 +7,12 @@
 	Se l'auto è già presente allora
 	altrimenti inseriscila
 */
+//3)il palo invia al successivo le info sul traffio , incidenti ecc.
 
 module PaloC{
 	uses interface Boot;
 	uses interface Timer<TMilli>;
-	
+	uses interface Timer<TMilli> as Palo ;
 	uses interface SplitControl as Radio;
 	uses interface Packet;
 	uses interface AMSend;
@@ -21,6 +22,7 @@ module PaloC{
 
 implementation{
 	const uint32_t PERIOD=200;
+	const uint32_t PERIODOPALO=1000;
 	uint8_t j = 0;
 	uint16_t myNodeid;
 	bool traffico;
@@ -38,7 +40,7 @@ implementation{
    "AB123CD", "EF456GH", "IJ789KL", "MN012OP", 
    "QR345ST", "UV678WX", "YZ901AB", "CD234EF",
    "GH567IJ", "KL890MN"
-    };
+   };
 	
 	event void Boot.booted(){
 		call Radio.start();
@@ -49,6 +51,9 @@ implementation{
 		mes_Aggiuntivo = 0;
 		
 		call Timer.startPeriodic(PERIOD);
+		call Palo.startPeriodic(PERIODOPALO);
+  
+
 	}
 		
 	event void Radio.startDone(error_t code){
@@ -124,5 +129,15 @@ implementation{
 		streetState->lavori_in_corso = lavori_in_corso;
 		streetState->mes_Aggiuntivo = mes_Aggiuntivo;
 		call AMSend.send(ID_BROADCAST, &pkt, sizeof(MyPayload));
+	}
+
+	event void Palo.fired(){//Invio al palo successivo le info
+		streetState = (MyPayload*)(call Packet.getPayload( &pkt, sizeof(MyPayload)));
+		streetState->myNodeid = TOS_NODE_ID;
+		streetState->traffico = traffico;
+		streetState->incidente = incidente;
+		streetState->lavori_in_corso = lavori_in_corso;
+		streetState->mes_Aggiuntivo = mes_Aggiuntivo;
+		call AMSend.send((TOS_NODE_ID % PALI) + 1, &pkt, sizeof(MyPayload));
 	}
 }
