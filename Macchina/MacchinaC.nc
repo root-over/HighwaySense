@@ -99,7 +99,7 @@ implementation {
 	
 	printf("%d\n",ArduinoData);
 
-	if (ArduinoData == 28496){
+	if (ArduinoData == 29268){
 		Celsius= 1;
 		printf("Dati Ricevuti da esp: = %s\n", "Traffico");
 	}
@@ -111,7 +111,14 @@ implementation {
 		Celsius= 3;
 		printf("Dati Ricevuti da esp: = %s\n", "Incidente");
 	}
-
+	if (ArduinoData == 19279){
+		Celsius= 3;
+		printf("Dati Ricevuti da esp: = %s\n", "OK");
+	}
+	if (ArduinoData == 24908){
+		Celsius= 3;
+		printf("Dati Ricevuti da esp: = %s\n", "Lavori in corso");
+	}
         printfflush();
     }
 
