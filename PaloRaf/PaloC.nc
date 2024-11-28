@@ -36,9 +36,10 @@ module PaloC{
 }
 
 implementation{
-	const uint32_t PERIOD=200;
+	const uint32_t PERIOD=400;
 	const uint32_t PERIODOPALO=1000;
 	uint8_t j = 0;
+	uint16_t idAutoInc = 0;
 	
 	uint16_t myNodeid;
 	bool traffico;
@@ -84,6 +85,18 @@ implementation{
 			return;
 		
 		traffico = FALSE;		
+	}
+	
+	task void controlloIncidente(){
+		uint8_t i = 0;
+		for (i=0; i<NUM_MAX_AUTO && numAutoPresenti[i].autoid > 0; i++){
+			if(numAutoPresenti[i].autoid == idAutoInc)
+				return
+		}
+		
+		incidente = FALSE;
+		idAutoInc = 0;
+		mes_Aggiuntivo = 0;
 	}
 	
 //SEZIONE DELLE IMPLEMENTAZIONI DEGLI EVENTI DELLE VARIE INTERFACCE
@@ -151,10 +164,14 @@ implementation{
 				
 				if (autoCorrente->incidente){//Verifico che l'auto non abbia avvertito un incidente
 					incidente = TRUE;
+					idAutoInc = autoCorrente->autoid;
 					mes_Aggiuntivo = TOS_NODE_ID;
 				}
 				
 				post controlloTraffico();
+				
+				if (idAutoInc == autoCorrente->autoid)
+					post controlloIncidente();
 			}
 			
             //printTarga(autoCorrente->autoid);//stampa la targa			
