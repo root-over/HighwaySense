@@ -89,10 +89,9 @@ implementation{
 	
 	task void controlloIncidente(){
 		uint8_t i = 0;
-		for (i=0; i<NUM_MAX_AUTO && numAutoPresenti[i].autoid > 0; i++){
+		for (i=0; i<NUM_MAX_AUTO && numAutoPresenti[i].autoid > 0; i++)
 			if(numAutoPresenti[i].autoid == idAutoInc)
-				return
-		}
+				return;
 		
 		incidente = FALSE;
 		idAutoInc = 0;
