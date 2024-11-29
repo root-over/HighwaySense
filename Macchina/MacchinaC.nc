@@ -18,7 +18,6 @@ module MacchinaC {
     uses interface AMSend;
     uses interface Receive;
 
-    uses interface Read<uint16_t> as Temperature;
     uses interface Resource;
     uses interface UartStream;
 
@@ -32,11 +31,18 @@ implementation {
     uint8_t notificaAuto = 0;
     uint16_t mes = 0;
 
+    uint16_t myNodeid;
+	bool traffico;
+	bool incidente;
+	bool lavori_in_corso;
+    bool sos;
+	uint16_t mes_Aggiuntivo;
+
     message_t pkt;
     MyPayload* myState;
     MyPayload* pktReceived;
 
-    uint8_t DataUart[5]; 
+    uint8_t DataUart[6]; 
     uint8_t receivedData[32]; 
     uint16_t ArduinoData; 
     uint16_t Celsius = 0;
@@ -64,6 +70,7 @@ implementation {
 
     event void Boot.booted() {
 		call Radio.start();//Attivo la radio per ricevere messaggi dal palo
+
 		myState = (MyPayload*)(call Packet.getPayload(&pkt, sizeof(MyPayload)));//Inizializzo messaggio da mandare al palo
 		call TimerRCV.startPeriodic(1024);//Richiamo timerRCV per ricevere dati auto
 		
@@ -89,8 +96,6 @@ implementation {
     
     event void TimerRCV.fired() {
         call Leds.led1Toggle();
-
-        call Temperature.read();
         call Resource.request();
 
         printf("Dati Inviati = %d\n", Celsius);
@@ -100,35 +105,25 @@ implementation {
 	printf("%d\n",ArduinoData);
 
 	if (ArduinoData == 29268){
-		Celsius= 1;
+        //Metto direttamente il valore dentro la variabile
+		myState->traffico = TRUE;
 		printf("Dati Ricevuti da esp: = %s\n", "Traffico");
 	}
 	if (ArduinoData == 20307){
-		Celsius= 2;
+		myState->sos = TRUE;
 		printf("Dati Ricevuti da esp: = %s\n", "SOS");
 	}
 	if (ArduinoData == 28233){
-		Celsius= 3;
+		myState->incidente = TRUE;
 		printf("Dati Ricevuti da esp: = %s\n", "Incidente");
 	}
 	if (ArduinoData == 19279){
-		Celsius= 3;
 		printf("Dati Ricevuti da esp: = %s\n", "OK");
 	}
 	if (ArduinoData == 24908){
-		Celsius= 3;
 		printf("Dati Ricevuti da esp: = %s\n", "Lavori in corso");
 	}
         printfflush();
-    }
-
-    event void Temperature.readDone(error_t code, uint16_t data) {
-        if (code == SUCCESS) {
-            //Celsius = (-39 + 0.01 * data);
-		//Celsius =1;
-            DataUart[2] = Celsius >> 8;
-            DataUart[1] = Celsius & 0xff;
-        }
     }
 
     //Ho ricevuto il messaggio broadcast dal palo
@@ -136,23 +131,53 @@ implementation {
 		if (payloadLength == sizeof(MyPayload)){//pacchetto ricevuto dal palo
 			call Leds.led1On();
 			pktReceived = (MyPayload*)payload;
-			
-			if (pktReceived->traffico)//Studio il messaggio arrivato
-				notificaAuto = 1;
-			else if (pktReceived->incidente)
-				notificaAuto = 2;
-			else if (pktReceived->lavori_in_corso)
-				notificaAuto = 3;
-			else if (pktReceived->sos)
-				notificaAuto = 4;
+            
+            notificaAuto = 0;
+            if (pktReceived->traffico) // Studio il messaggio arrivato
+                notificaAuto |= 1 << 0;
+            if (pktReceived->incidente)
+                notificaAuto |= 1 << 1;
+            if (pktReceived->lavori_in_corso)
+                notificaAuto |= 1 << 2;
+            if (pktReceived->sos)
+                notificaAuto |= 1 << 3;
 			//inviare notificaAuto
-			
+
+            if (notificaAuto & (1 << 0)) { //Messaggi che vanno mandati all'esp per notificare la macchina
+                //Metto 1 nel bit 1 del messaggio da mandare all'esp via uart 
+                printf("Traffico\n");
+                DataUart[1]=1;
+            }else{
+                DataUart[1]=0;
+            }
+            if (notificaAuto & (1 << 1)) {
+                printf("Incidente\n");
+                DataUart[2]=1;
+            }else{
+                DataUart[2]=0;
+            }
+            if (notificaAuto & (1 << 2)) {
+                printf("Lavori in corso\n");
+                DataUart[3]=1;
+            }else{
+                DataUart[3]=0;
+            }
+            if (notificaAuto & (1 << 3)) {
+                printf("SOS\n");
+                DataUart[4]=1;
+            }else{
+                DataUart[4]=0;
+            }
 			//finisco di compilare il messaggio da dover inoltrare
 			myState->myNodeid = TOS_NODE_ID;
 			myState->lavori_in_corso = FALSE;
 			myState->mes_Aggiuntivo = mes;
-			call AMSend.send(pktReceived->myNodeid, &pkt, sizeof(MyPayload));
+
+            //La macchina manda al palo solo se il palo gli ha comunicato prima il suo id, serve a capire a quale palo la macchina è connessa
+			call AMSend.send(pktReceived->myNodeid, &pkt, sizeof(MyPayload)); 
 		}
+
+        // TODO Per test togliere lo stop in modo da ricevere continuamente messaggi dal palo
 		call Radio.stop();//Smetto di ascoltare in ricezione i messaggi dei pali
 		call TimerRadio.startOneShot(PERIOD);//Attendo PERIOD e riattivo la radio
 		return msg;
@@ -164,7 +189,7 @@ implementation {
 
     event void Resource.granted() {
         DataUart[0] = SOP;
-        DataUart[3] = EOP;
+        DataUart[5] = EOP;
 
         if (call UartStream.send(DataUart, 5) == SUCCESS) {
             call Leds.led0Toggle();
