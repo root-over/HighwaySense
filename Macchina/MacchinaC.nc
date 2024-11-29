@@ -44,7 +44,7 @@ implementation {
 
     uint8_t DataUart[6]; 
     uint8_t receivedData[32]; 
-    uint16_t ArduinoData; 
+    uint16_t EspData; 
     uint16_t Celsius = 0;
 
     msp430_uart_union_config_t msp430_uart_9600_config = {
@@ -97,31 +97,35 @@ implementation {
     event void TimerRCV.fired() {
         call Leds.led1Toggle();
         call Resource.request();
+	DataUart[4]=1; // FIXME di test per simulare un cambio valore
+    printf("Dati Inviati Uart 1 = %d\n", DataUart[1]);
+	printf("Dati Inviati Uart 2 = %d\n", DataUart[2]);
+	printf("Dati Inviati Uart 3 = %d\n", DataUart[3]);
+	printf("Dati Inviati Uart 4 = %d\n", DataUart[4]);
 
-        printf("Dati Inviati = %d\n", Celsius);
-
-        ArduinoData = receivedData[1] << 8 | receivedData[0]; 
+        EspData = receivedData[1] << 8 | receivedData[0]; 
 	
-	printf("%d\n",ArduinoData);
+	//Questa print serve solo a vedere il numero trasmesso dall'esp via uart
+	//printf("%d\n",EspData);
 
-	if (ArduinoData == 29268){
+	if (EspData == 29268){
         //Metto direttamente il valore dentro la variabile
 		myState->traffico = TRUE;
-		printf("Dati Ricevuti da esp: = %s\n", "Traffico");
+		printf("esp: = %s\n", "Traffico");
 	}
-	if (ArduinoData == 20307){
+	if (EspData == 20307){
 		myState->sos = TRUE;
-		printf("Dati Ricevuti da esp: = %s\n", "SOS");
+		printf("esp: = %s\n", "SOS");
 	}
-	if (ArduinoData == 28233){
+	if (EspData == 28233){
 		myState->incidente = TRUE;
-		printf("Dati Ricevuti da esp: = %s\n", "Incidente");
+		printf("esp: = %s\n", "Incidente");
 	}
-	if (ArduinoData == 19279){
-		printf("Dati Ricevuti da esp: = %s\n", "OK");
+	if (EspData == 19279){
+		printf("esp: = %s\n", "OK");
 	}
-	if (ArduinoData == 24908){
-		printf("Dati Ricevuti da esp: = %s\n", "Lavori in corso");
+	if (EspData == 24908){
+		printf("esp: = %s\n", "Lavori in corso");
 	}
         printfflush();
     }
@@ -191,7 +195,7 @@ implementation {
         DataUart[0] = SOP;
         DataUart[5] = EOP;
 
-        if (call UartStream.send(DataUart, 5) == SUCCESS) {
+        if (call UartStream.send(DataUart, 6) == SUCCESS) {
             call Leds.led0Toggle();
         }
         
