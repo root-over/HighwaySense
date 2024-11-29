@@ -125,6 +125,7 @@ implementation{
 	event void AMSend.sendDone(message_t* msg, error_t code){
 		if (code == FAIL)
 			call AMSend.send(ID_BROADCAST, &pkt, sizeof(MyPayload));
+		printf("Messaggio broadcast inviato\n");
 	}
       
 /*
