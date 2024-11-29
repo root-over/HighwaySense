@@ -12,7 +12,6 @@ implementation {
 	components new AMReceiverC(MESSAGE_TYPE);
 
 	components new Msp430Uart0C();
-	components new SensirionSht11C() as TemperatureDriver;
 	components PrintfC, SerialStartC;
 
 	
@@ -31,8 +30,6 @@ implementation {
 
 	MacchinaC.Resource -> Msp430Uart0C;
 	MacchinaC.UartStream-> Msp430Uart0C;
-	MacchinaC.Temperature -> TemperatureDriver.Temperature;
 	MacchinaC.Msp430UartConfigure <- Msp430Uart0C;
     
     }
-
