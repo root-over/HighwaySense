@@ -9,7 +9,6 @@
 module MacchinaC {
     uses interface Boot;
     uses interface Leds;
-    //uses interface Timer<TMilli> as Timer;
     uses interface Timer<TMilli> as TimerRCV;
     uses interface Timer<TMilli> as TimerRadio;
 
@@ -44,8 +43,7 @@ implementation {
 
     uint8_t DataUart[6]; 
     uint8_t receivedData[32]; 
-    uint16_t EspData; 
-    uint16_t Celsius = 0;
+    uint16_t EspData;
 
     msp430_uart_union_config_t msp430_uart_9600_config = {
         {
@@ -97,7 +95,6 @@ implementation {
     event void TimerRCV.fired() {
         call Leds.led1Toggle();
         call Resource.request();
-	DataUart[4]=1; // FIXME di test per simulare un cambio valore
     printf("Dati Inviati Uart 1 = %d\n", DataUart[1]);
 	printf("Dati Inviati Uart 2 = %d\n", DataUart[2]);
 	printf("Dati Inviati Uart 3 = %d\n", DataUart[3]);
@@ -112,15 +109,21 @@ implementation {
         //Metto direttamente il valore dentro la variabile
 		myState->traffico = TRUE;
 		printf("esp: = %s\n", "Traffico");
-	}
+	}else{
+        	myState->traffico = FALSE;
+    }
 	if (EspData == 20307){
 		myState->sos = TRUE;
 		printf("esp: = %s\n", "SOS");
-	}
+	}else{
+        myState->sos = FALSE;
+    }
 	if (EspData == 28233){
 		myState->incidente = TRUE;
 		printf("esp: = %s\n", "Incidente");
-	}
+	}else{
+        myState->incidente = FALSE;
+    }
 	if (EspData == 19279){
 		printf("esp: = %s\n", "OK");
 	}
@@ -177,7 +180,18 @@ implementation {
 			myState->lavori_in_corso = FALSE;
 			myState->mes_Aggiuntivo = mes;
 
+		    //TODO RIMUOVERE messaggio modificato prima dell'invio per simulazione
+		    myState->incidente=TRUE;
+            myState->sos=TRUE;
+
             //La macchina manda al palo solo se il palo gli ha comunicato prima il suo id, serve a capire a quale palo la macchina è connessa
+            printf("Pacchetto trasmesso al palo: %p\n", &pkt);
+            printf("myNodeid: %d\n", myState->myNodeid);
+            printf("traffico: %d\n", myState->traffico);
+            printf("incidente: %d\n", myState->incidente);
+            printf("lavori_in_corso: %d\n", myState->lavori_in_corso);
+            printf("sos: %d\n", myState->sos);
+            printf("mes_Aggiuntivo: %d\n", myState->mes_Aggiuntivo);
 			call AMSend.send(pktReceived->myNodeid, &pkt, sizeof(MyPayload)); 
 		}
 
