@@ -153,11 +153,17 @@ implementation{
 					lavori_in_corso = TRUE;
 					mes_Aggiuntivo = pktReceived->myNodeid;
 				}
+
 			}
 			else{
-				autoCorrente->autoid = pktReceived->myNodeid;
+				autoCorrente->autoid = pktReceived->myNodeid; //pacchetto ricevuto dalla macchina
 				autoCorrente->incidente = pktReceived->incidente;
 				autoCorrente->sos = pktReceived->sos;
+
+				printf("AutoID: %d\n", autoCorrente->autoid);
+				printf("Traffico: %d\n", traffico);
+				printf("Incidente: %d\n", autoCorrente->incidente);
+				printf("SOS: %d\n", autoCorrente->sos);
 				
 				if (autoCorrente->sos)
 					//Intervento in caso un auto chieda sos
