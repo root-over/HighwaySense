@@ -42,7 +42,7 @@ void receiveUartData() {
               }
                 
                 Serial.print(" \n");
-                byte sndStat = CAN0.sendMsgBuf(0x999, 0, 6, data); // invio il messaggio via CAN
+                byte sndStat = CAN0.sendMsgBuf(0x100, 0, 6, data); // invio il messaggio via CAN
                 // TODO dal cluster leggere il messaggio ricevuto ed interpretarlo di conseguenza
                 if(sndStat == CAN_OK){
                   Serial.println("Messagio CAN inviato alla macchina!");
