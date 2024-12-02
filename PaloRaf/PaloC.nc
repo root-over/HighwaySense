@@ -31,7 +31,6 @@ module PaloC{
 	uses interface SplitControl as Radio;
 	uses interface Packet;
 	uses interface AMSend;
-	
 	uses interface Receive;
 }
 
@@ -53,13 +52,7 @@ implementation{
 	Auto* autoCorrente;
 	Auto numAutoPresenti[NUM_MAX_AUTO];
  
- /* 
-   const char targhe[NUM_MAX_AUTO][8] = {
-   "AB123CD", "EF456GH", "IJ789KL", "MN012OP", 
-   "QR345ST", "UV678WX", "YZ901AB", "CD234EF",
-   "GH567IJ", "KL890MN"
-   };
-*/
+
 //SEZIONE DELLE IMPLEMENTAZIONI DEI TASK UTILIZZATI NEL CODICE
 
 	task void controlloTraffico(){
@@ -153,6 +146,10 @@ implementation{
 					lavori_in_corso = TRUE;
 					mes_Aggiuntivo = pktReceived->myNodeid;
 				}
+				if (pktReceived->sos){
+					sos = TRUE;
+					mes_Aggiuntivo = pktReceived->myNodeid;
+				}
 
 			}
 			else{
@@ -179,8 +176,7 @@ implementation{
 				if (idAutoInc == autoCorrente->autoid)
 					post controlloIncidente();
 			}
-			
-            //printTarga(autoCorrente->autoid);//stampa la targa			
+					
 		}
 		return msg;
 	}
