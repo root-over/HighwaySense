@@ -9,6 +9,7 @@ typedef nx_struct MyPayload {
 	nx_bool incidente;
 	nx_bool lavori_in_corso;
 	nx_bool sos;
+	nx_bool broad;
 	nx_uint16_t mes_Aggiuntivo;
 } MyPayload;
 
