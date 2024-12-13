@@ -12,11 +12,4 @@ typedef nx_struct MyPayload {
 	nx_uint16_t mes_Aggiuntivo;
 } MyPayload;
 
-typedef struct Auto {
-	uint16_t autoid;
-	bool incidente;
-	bool sos;
-	char targa[8];
-} Auto;
-
 #endif
