@@ -33,9 +33,7 @@ module TelosbC{
 }
 
 implementation{
-	uint16_t mex;
-	
-	message_t pkt_received;
+	//message_t pkt_received;
 	message_t pkt_to_send;
 	MyPayload* pktReceived;
 	MyPayload* pktToSend;
@@ -110,10 +108,12 @@ implementation{
 		call Radio.start();
 		printf("Radio accesa\n");
 		pktToSend = (MyPayload*)(call Packet.getPayload(&pkt_to_send, sizeof(MyPayload)));
+		//IMPOSTO DI DEFAULT ALCUNI TRATTI DEL MESSAGGIO CHE NON VERRANNO STUDIATI DAI PALI
+		pktToSend->myNodeid = TOS_NODE_ID;
 		pktToSend->traffico = FALSE;
-		pktToSend->incidente = TRUE;
-		pktToSend->sos = FALSE;
-		//printf("Payload creato\n");
+		pktToSend->lavori_in_corso = FALSE;
+		pktToSend->broad = FALSE;
+		pktToSend->mes_Aggiuntivo = 0;
 		call TimerReceived.startPeriodic(PERIOD_FROM_CAR);
 		printf("TimerReceived avviato\n");
 		printfflush();
@@ -154,22 +154,25 @@ implementation{
 	
 	event message_t* Receive.receive(message_t* msg, void* payload, uint8_t payloadLength){
 		if (payloadLength == sizeof(MyPayload)){
-			printf("Pacchetto arrivato!\n");
+			printf("Pacchetto arrivato con i seguenti dati:\n");
 			pktReceived = (MyPayload*)payload;
+			
+			printf("PoleId: %d\tTr: %d\tInc: %d\tLav: %d\tSos: %d\n",pktReceived->mes_Aggiuntivo, pktReceived->traffico, pktReceived->incidente, pktReceived->lavori_in_corso, pktReceived->sos);
+			
+			//NOTIFICARE AUTO
+			printf("Auto notificata\n");
 		
-			pktToSend->myNodeid = TOS_NODE_ID;
-			pktToSend->lavori_in_corso = FALSE;
-			pktToSend->mes_Aggiuntivo = mex;
 			printf("Sto inviando i seguenti dati:\n");
+			//MODIFICARE PKT_TO_SEND CON I DATI DELL'AUTO---I SEGUENTI SONO MESSI DI DEFAULT PER PROVA
+			pktToSend->incidente = FALSE;
+			pktToSend->sos = FALSE;
+			
 			printf("MyId: %d\tTr: %d\tInc: %d\tLav: %d\tSos: %d\n",pktToSend->myNodeid, pktToSend->traffico, pktToSend->incidente, pktToSend->lavori_in_corso, pktToSend->sos);
 			call AMSend.send(pktReceived->myNodeid, &pkt_to_send, sizeof(MyPayload));
 			printf("Pacchetto inviato al palo\n");
-			//printf("Length Palo: %d, length Auto: %d\n", payloadLength, sizeof(*pktToSend));
 			
 			call Radio.stop();
-			//printf("Tento di chiusere la radio\n");
 			call TimerRadio.startOneShot(PERIOD_SLEEP);
-			//printf("Tento di startare il timer\n");
 			printfflush();
 			return msg;
 		}
