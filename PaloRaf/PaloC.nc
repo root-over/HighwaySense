@@ -45,18 +45,16 @@ module PaloC{
 
 implementation{
 	uint8_t j = 0;
-	bool evitare;
 	
 	uint16_t myNodeid, id_corr;
-	bool traffico, tr_corr;
-	bool incidente, inc_corr;
-	bool lavori_in_corso, lav_corr;
-	bool sos, sos_corr;
-	bool mes_from_broad_corr;
-	uint16_t mes_Aggiuntivo, mes_corr;
+	bool traffico, tr_car, tr_pole;
+	bool incidente, inc_car, inc_pole;
+	bool lavori_in_corso, lav_car, lav_pole;
+	bool sos, sos_car, sos_pole;
+	bool mes_from_broad;
+	uint16_t mes_Aggiuntivo, mes_pole;
 	
 	uint16_t idAutoInc = 0;
-	uint16_t bgb;
 	
 	message_t pkt;
 	message_t broad;
@@ -83,8 +81,7 @@ implementation{
 					count_car_traffic++;
 					if (count_car_traffic >= NUM_CAR_MIN_TRAFFIC){
 						printf("Traffico\n");
-						traffico = TRUE;
-						mes_Aggiuntivo = TOS_NODE_ID;
+						tr_car = TRUE;
 						printfflush();
 						return;
 					}
@@ -92,27 +89,27 @@ implementation{
 				}
 			}
 		}
-		if (traffico && (mes_Aggiuntivo > TOS_NODE_ID))
-			return;
 			
 		traffico = FALSE;
 		printf("Non ho trovato traffico\n");
 		printfflush();
+		return;
 	}
 	
 	task void controlloIncidente(){
-		uint8_t i = 0;
+		uint8_t i;
 		for (i=0; i<NUM_MAX_AUTO && numAutoPresenti[i].autoid > 0; i++)
 			if(numAutoPresenti[i].autoid == idAutoInc){
 				printf("Auto incidentata\n");
+				inc_car = TRUE;
 				printfflush();
 				return;
 			}
 		printf("Nessuna auto incidentata\n");
 		printfflush();
-		incidente = FALSE;
+		inc_car = FALSE;
 		idAutoInc = 0;
-		mes_Aggiuntivo = 0;
+		return;
 	}
 	
 	//IMPLEMENTAZIONE EVENTI
@@ -120,19 +117,14 @@ implementation{
 	event void Boot.booted(){
 		call Radio.start();
 		//Inizializzazione di default
-		bgb = 0;
 		traffico = FALSE;
 		incidente = FALSE;
 		lavori_in_corso = FALSE;
 		sos = FALSE;
 		mes_Aggiuntivo = 0;
-		printf("\n\n\n\n\n\n\n\n");
-		//printf("Traf: %d, Inc: %d, Lav: %d, Sos: %d, Palo: %d\n",traffico,incidente,lavori_in_corso,sos,mes_Aggiuntivo);
 		
-		//call TimerBroadcast.startPeriodic(PERIOD_BROADCAST);
-		//printf("Timer per comunicazione broadcast partito\n");
+		call TimerBroadcast.startPeriodic(PERIOD_BROADCAST);
 		call TimerPalo.startPeriodic(PERIOD_INTERCOMUNICATION);
-		//printf("Timer per inter-comunicazione partito\n");
 		printfflush();
 	}
 		
@@ -171,101 +163,77 @@ implementation{
 	
 	event message_t* Receive.receive(message_t* msg, void* payload, uint8_t payloadLength){
 		if (payloadLength == sizeof(MyPayload)){
-			evitare = TRUE;
 			pktReceivedFromCar = (MyPayload*)payload;
 			
-			id_corr = pktReceivedFromCar->myNodeid;
-			tr_corr = pktReceivedFromCar->traffico;
-			inc_corr = pktReceivedFromCar->incidente;
-			lav_corr = pktReceivedFromCar->lavori_in_corso;
-			sos_corr = pktReceivedFromCar->sos;
-			mes_from_broad_corr = pktReceivedFromCar->broad;
-			mes_corr = pktReceivedFromCar->mes_Aggiuntivo;
-			
-			printf("%u %u %u %u %u %u", id_corr, tr_corr, inc_corr, lav_corr, sos_corr, mes_corr);
-			
 			//Se ho ricevuto il pacchetto dal palo successivo:
-			if((id_corr == TOS_NODE_ID + 1) && !mes_from_broad_corr){
+			if((pktReceivedFromCar->myNodeid == TOS_NODE_ID + 1) && !mes_from_broad){
+				//Mi memorizzo i messaggi in arrivo dal palo e non faccio nessun controllo
+				tr_pole = pktReceivedFromCar->traffico;
+				inc_pole = pktReceivedFromCar->incidente;
+				lav_pole = pktReceivedFromCar->lavori_in_corso;
+				sos_pole = pktReceivedFromCar->sos;
+				mes_pole = pktReceivedFromCar->mes_Aggiuntivo;
+			
+			
 				printf("Pacchetto arrivato dal palo\n");
-				printf("Mex agg:%d\n",mes_Aggiuntivo);
 				call Leds.led0Toggle();
-				evitare = FALSE;
-				if ((tr_corr) && (mes_Aggiuntivo != TOS_NODE_ID)){
-					traffico = TRUE;
-					printf("%s al palo: %d\n","Traffico",mes_corr);
-				}
-				if ((pktReceivedFromCar->incidente) && (mes_Aggiuntivo != TOS_NODE_ID)){
-					incidente = TRUE;
-					printf("%s al palo: %d\n","Incidente",mes_corr);
-				}
-				if ((pktReceivedFromCar->lavori_in_corso) && (mes_Aggiuntivo != TOS_NODE_ID)){
-					lavori_in_corso = TRUE;
-					printf("%s al palo: %d\n","Lavori",mes_corr);
-				}
-				if ((pktReceivedFromCar->sos) && (mes_Aggiuntivo != TOS_NODE_ID)){
-					sos = TRUE;
-					printf("%s al palo: %d\n","Sos",mes_corr);
-				}
-				if(tr_corr || inc_corr || lav_corr || sos_corr){
-					printf("Verifica\n");
-					if(mes_Aggiuntivo != TOS_NODE_ID)
-						mes_Aggiuntivo = mes_corr;
-				}else
-					if(mes_Aggiuntivo > TOS_NODE_ID)
-						mes_Aggiuntivo = 0;
-				printf("new mex agg: %u\n", mes_Aggiuntivo);
+				
 				printfflush();
 			}
 			
 			//Se ho ricevuto il pacchetto da un'auto:
 			if((pktReceivedFromCar->myNodeid > MIN_ID_CAR) && (pktReceivedFromCar->myNodeid < MAX_ID_CAR)){
 				printf("Pacchetto arrivato da un'auto\n");
-				evitare = FALSE;
-	
-				/*autoCorrente->autoid = pktReceivedFromCar->myNodeid;
-				printf("IdAuto: %u - ", autoCorrente->autoid);
-				//%u per gli interi senza segno
-				autoCorrente->incidente = pktReceivedFromCar->incidente;
-				printf("Inc: %d - ", autoCorrente->incidente);
-				//autoCorrente->traffico = pktReceivedFromCar->traffico;
-				//printf("Tra: %d - ", autoCorrente->traffico);
-				autoCorrente->sos = pktReceivedFromCar->sos;
-				printf("Sos: %d \n", autoCorrente->sos);
-				//autoCorrente->lavori_in_corso = pktReceivedFromCar->lavori_in_corso;
-				//printf("Lavori: %d\n", autoCorrente->lavori_in_corso);
-				printfflush();
-				*/
+				call Leds.led2Toggle();
 				
-				autoCorrente.autoid=id_corr;
-				autoCorrente.incidente=inc_corr;
-				autoCorrente.sos=sos_corr;
-				printf("Id: %u\tInc: %u\tSos: %u\n", id_corr, inc_corr, sos_corr);
+				//Memororizzo i dati delle auto e non faccio nessun controllo
 				
-				printf("Il segnale di sos corrente e': %d\n",sos_corr);
-				if(sos_corr)
-					printf("Auto %d ha inviato un sos pari a: %d\n",id_corr, sos_corr);
-					//NOTIFICO L'APP
+				autoCorrente.autoid = pktReceivedFromCar->myNodeid;
+				autoCorrente.incidente = pktReceivedFromCar->incidente;
+				autoCorrente.sos = pktReceivedFromCar->sos;
+				sos_car = autoCorrente.sos;
 				
-				post controlloTraffico();
-				
-				printf("Mentre quello di incidente e': %d\n",inc_corr);
-				if (inc_corr){
-					printf("Auto %d ha avuto un incidente\n",id_corr);
-					incidente = TRUE;
-					idAutoInc = id_corr;
-					mes_Aggiuntivo = TOS_NODE_ID;
-				}
-				
-				if (idAutoInc == autoCorrente.autoid)
-					post controlloIncidente();
+				if(pktReceivedFromCar->myNodeid == ID_FOR_CHANGE_WORK)
+					lav_car = pktReceivedFromCar->lavori_in_corso;
+				//Mi serve a settare i lavori
 				
 				printfflush();
 			}
+			
+			//Dopo aver aggiornato le variabili in funzione del messaggio arrivato setto i messaggi da dover inviare successivamente
+			//Di default metto i messaggi in arrivo dal palo ma se è successo qualcosa relativa al mio stato moddifico tale messaggio
+			traffico = tr_pole;
+			incidente = inc_pole;
+			lavori_in_corso = lav_pole;
+			sos = sos_pole;
+			mes_Aggiuntivo = mes_pole;
+			
+			//Passo inizialmente col controllare traffico e incidente
+			
+			post controlloTraffico();
+			//Se ha avuto efficacia avrò tr_car = TRUE
+			
+			if(autoCorrente.incidente)
+				idAutoInc = autoCorrente.autoid;
+			post controlloIncidente();
+			//Se ha avuto successo avrò inc_car = TRUE
+			
+			if(!(sos_pole)){
+				if (tr_car || inc_car || sos_car || lav_car){
+					traffico = tr_car;
+					incidente = inc_car;
+					lavori_in_corso = lav_car;
+					sos = sos_car;
+					mes_Aggiuntivo = TOS_NODE_ID;
+				}
+				else
+					mes_Aggiuntivo = 0;
+			}
+				
+			
 			printfflush();
 			//Se è un messaggio da evitare termina la Receive
 			
-			if(evitare)
-				return msg;
 		}
 		return msg;
 	}
@@ -286,8 +254,6 @@ implementation{
 	}
 	
 	event void TimerPalo.fired(){
-		if(bgb%5==0)
-			incidente=!incidente;
 		streetState = (MyPayload*)(call Packet.getPayload( &pkt, sizeof(MyPayload)));
 		streetState->myNodeid = TOS_NODE_ID;
 		streetState->traffico = traffico;
@@ -295,14 +261,10 @@ implementation{
 		streetState->lavori_in_corso = lavori_in_corso;
 		streetState->sos = sos;
 		streetState->broad = FALSE;
-		if(incidente)
-			mes_Aggiuntivo = TOS_NODE_ID;
 		streetState->mes_Aggiuntivo = mes_Aggiuntivo;
 		printf("MyNode: %d, Traf: %d, Inc: %d, Lav: %d, Sos: %d, Palo: %d",TOS_NODE_ID,traffico,incidente,lavori_in_corso,sos,mes_Aggiuntivo);
 		printf("-Messaggio palo\n");
 		printfflush();
 		call AMSend.send(TOS_NODE_ID - 1, &pkt, sizeof(MyPayload));
-		mes_Aggiuntivo = 0;
-		bgb++;
 	}
 }
