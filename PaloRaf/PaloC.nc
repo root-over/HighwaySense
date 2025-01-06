@@ -123,7 +123,7 @@ implementation{
 		
 		call TimerBroadcast.startPeriodic(PERIOD_BROADCAST);
 		call TimerPalo.startPeriodic(PERIOD_INTERCOMUNICATION);
-		printfflush();
+	
 	}
 		
 	event void Radio.startDone(error_t code){
