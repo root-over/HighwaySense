@@ -102,11 +102,9 @@ implementation{
 			if(numAutoPresenti[i].autoid == idAutoInc){
 				printf("Auto incidentata\n");
 				inc_car = TRUE;
-				printfflush();
 				return;
 			}
 		printf("Nessuna auto incidentata\n");
-		printfflush();
 		inc_car = FALSE;
 		idAutoInc = 0;
 		return;
