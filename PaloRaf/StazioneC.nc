@@ -2,40 +2,17 @@
 #include "Car_message.h"
 #include "printf.h"
 
-/*GESTIONE DELL'ATTIVITÀ NEL TEMPO DEL PALO
-1)Il palo invia tramite broadcast lo stato della strada
-2)Quando riceve un messaggio da auto X studia la struttura dati:
-	Se l'auto è già presente allora
-	altrimenti inseriscila
-3)Un palo invia al successivo le info sul traffio, incidenti ecc.
-*/
-
-/*GESTIONE DELLE INFORMAZIONI DI UN SINGOLO PALO
-C'è un incidente (incidente==TRUE) quando:
-	-L'informazione proviene dalla macchina (in questo caso l'incidente è avvenuto in prossimità del palo stesso);
-	-L'informazione proviene dal palo successivo (devo indicare l'id del palo presso cui è avvenuto l'incidente);
-C'è un traffico (traffico==TRUE) quando:
-	-L'informazione proviene dalla macchina (una stessa auto è registrata più volte presso lo stesso palo); pIU MACCHINE
-	-L'informazione proviene dal palo successivo (devo indicare l'id del palo);
-C'è un lavori_in_corso (lavori_in_corso==TRUE) quando:
-	-L'informazione proviene da manutentori della strada;
-	-L'informazione proviene dal palo successivo (devo indicare l'id del palo);
-C'è un sos (sos==TRUE) quando:
-	-L'informazione proviene dalla macchina (in questo caso l'incidente è avvenuto in prossimità del palo stesso);
-*/
-
 #define PERIOD_BROADCAST 500
 #define PERIOD_INTERCOMUNICATION 3000
 #define MIN_ID_CAR 20
 #define MAX_ID_CAR 200
 #define NUM_CAR_MIN_TRAFFIC 2
 
-
-module PaloC{
+module StazioneC{
 	uses interface Boot;
 	uses interface Leds;
 	uses interface Timer<TMilli> as TimerBroadcast;
-	uses interface Timer<TMilli> as TimerPalo;
+	uses interface Timer<TMilli> as TimerStazione;
 	
 	uses interface SplitControl as Radio;
 	uses interface Packet;
@@ -46,60 +23,49 @@ module PaloC{
 implementation{
 	uint8_t j = 0;
 	
-	uint16_t myNodeid, id_corr;
-	bool traffico, tr_car, tr_pole;
-	bool incidente, inc_car, inc_pole;
-	bool lavori_in_corso, lav_car, lav_pole;
-	bool sos, sos_car, sos_pole;
+	uint16_t my_node_id, id_corr;
+	bool traffic, tr_car, tr_station;
+	bool crash, crash_car, crash_station;
+	bool work_in_progress, wip_car, wip_station;
+	bool sos, sos_car, sos_station;
 	bool mes_from_broad;
-	uint16_t mes_Aggiuntivo, mes_pole;
+	uint16_t mes_station_involved, mes_station;
 	
-	uint16_t idAutoInc = 0;
+	uint16_t crashed_car = 0;
 	
 	message_t pkt;
 	message_t broad;
 	MyPayload* streetState;
 	MyPayload* pktReceivedFromCar;
-	Auto autoCorrente;
-	Auto numAutoPresenti[NUM_MAX_AUTO];
-	
-	//IMPLEMENTAZIONE TASK
-	
-	task void controlloTraffico(){
+	Auto current_car;
+	Auto buffer_cars[NUM_MAX_CAR];
+
+	//TASKS
+	task void trafficControl(){
 		uint8_t i = 0, a = 0, count_car_traffic = 0;
 		uint8_t id_founded_car = 0;
-		numAutoPresenti[j] = autoCorrente;
-		printf("Ho inserito l'auto %u nel buffer del palo corrente\n", autoCorrente.autoid);
-		j++;
-		j = j % NUM_MAX_AUTO;
 		
-		for (i=0; i<NUM_MAX_AUTO && numAutoPresenti[i].autoid > 0; i++){
-			for (a=i+1; a<NUM_MAX_AUTO && numAutoPresenti[a].autoid > 0; a++){
-				if (numAutoPresenti[i].autoid == numAutoPresenti[a].autoid && id_founded_car != numAutoPresenti[i].autoid){
-					printf("Ho trovato auto con id: %u all'interno del buffer del palo\n",numAutoPresenti[i].autoid);
-					id_founded_car = numAutoPresenti[i].autoid;
+		for (i=0; i<NUM_MAX_CAR && buffer_cars[i].autoid > 0; i++){
+			for (a=i+1; a<NUM_MAX_CAR && buffer_cars[a].autoid > 0; a++){
+				if (buffer_cars[i].autoid == buffer_cars[a].autoid && id_founded_car != buffer_cars[i].autoid){
+					id_founded_car = buffer_cars[i].autoid;
 					count_car_traffic++;
 					if (count_car_traffic >= NUM_CAR_MIN_TRAFFIC){
-						printf("Traffico\n");
 						tr_car = TRUE;
-						printfflush();
 						return;
 					}
 					break;
 				}
 			}
 		}
-			
-		traffico = FALSE;
-		printf("Non ho trovato traffico\n");
-		printfflush();
+		tr_car = FALSE;
 		return;
 	}
 	
-	task void controlloIncidente(){
+	task void incidentControl(){
 		uint8_t i;
-		for (i=0; i<NUM_MAX_AUTO && numAutoPresenti[i].autoid > 0; i++)
-			if(numAutoPresenti[i].autoid == idAutoInc){
+		for (i=0; i<NUM_MAX_AUTO && buffer_cars[i].autoid > 0; i++)
+			if(buffer_cars[i].autoid == idAutoInc){
 				printf("Auto incidentata\n");
 				inc_car = TRUE;
 				return;
@@ -110,8 +76,7 @@ implementation{
 		return;
 	}
 	
-	//IMPLEMENTAZIONE EVENTI
-	
+	//EVENTS
 	event void Boot.booted(){
 		call Radio.start();
 		//Inizializzazione di default
@@ -190,7 +155,11 @@ implementation{
 				autoCorrente.incidente = pktReceivedFromCar->incidente;
 				autoCorrente.sos = pktReceivedFromCar->sos;
 				sos_car = autoCorrente.sos;
-				
+
+				buffer_cars[j] = current_car;
+				j++;
+				j = j % NUM_MAX_AUTO;
+		
 				if(pktReceivedFromCar->myNodeid == ID_FOR_CHANGE_WORK)
 					lav_car = pktReceivedFromCar->lavori_in_corso;
 				//Mi serve a settare i lavori
