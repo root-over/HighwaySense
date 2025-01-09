@@ -20,7 +20,7 @@ implementation {
   components new AMSenderC(MESSAGE_TYPE);
   components new AMReceiverC(MESSAGE_TYPE);
 
-	StazioneBluetoothC.Radio -> ActiveMessageC;
+  StazioneBluetoothC.Radio -> ActiveMessageC;
   StazioneBluetoothC.Packet -> AMSenderC;
   StazioneBluetoothC.AMSend -> AMSenderC;
   StazioneBluetoothC.Receive -> AMReceiverC;
