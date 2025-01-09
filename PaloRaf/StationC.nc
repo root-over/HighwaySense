@@ -30,7 +30,7 @@ implementation{
 	bool work_in_progress, wip_car, wip_station;
 	bool sos, sos_car, sos_station;
 	bool mes_from_broad;
-	bool prev_station_problem;
+	bool next_station_problem;
 	uint16_t mes_station_involved, mes_station;
 	
 	uint16_t crashed_car = 0;
@@ -88,7 +88,7 @@ implementation{
 		crash = FALSE;
 		work_in_progress = FALSE;
 		sos = FALSE;
-		prev_station_problem = FALSE;
+		next_station_problem = FALSE;
 		mes_station_involved = 0;
 		
 		call TimerBroadcast.startPeriodic(PERIOD_BROADCAST);
@@ -115,6 +115,7 @@ implementation{
 				crash_station = pktReceivedFromCar->crash;
 				wip_station = pktReceivedFromCar->work_in_progress;
 				sos_station = pktReceivedFromCar->sos;
+				next_station_problem = pktReceivedFromCar->next_station_problem;
 				mes_station = pktReceivedFromCar->mes_station_involved;
 			}
 			
@@ -164,10 +165,10 @@ implementation{
 			}
 
 			if(count_car_before_st_mex<0){
-				prev_station_problem = TRUE;
+				next_station_problem = TRUE;
 				mes_station_involved = TOS_NODE_ID + 1;
 			}else
-				prev_station_problem = FALSE;
+				next_station_problem = FALSE;
 		}
 		return msg;
 	}
@@ -179,7 +180,7 @@ implementation{
 		streetState->crash = crash;
 		streetState->work_in_progress = work_in_progress;
 		streetState->sos = sos;
-		streetState->prev_station_problem = FALSE;
+		streetState->next_station_problem = FALSE;
 		streetState->broad = TRUE;
 		streetState->mes_station_involved = mes_station_involved;
 		call AMSend.send(ID_BROADCAST, &broad, sizeof(MyPayload));
@@ -192,7 +193,7 @@ implementation{
 		streetState->crash = crash;
 		streetState->work_in_progress = work_in_progress;
 		streetState->sos = sos;
-		streetState->prev_station_problem = prev_station_problem;
+		streetState->next_station_problem = next_station_problem;
 		streetState->broad = FALSE;
 		streetState->mes_station_involved = mes_station_involved;
 		call AMSend.send(TOS_NODE_ID - 1, &pkt, sizeof(MyPayload));
