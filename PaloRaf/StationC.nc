@@ -153,7 +153,8 @@ implementation{
 					mes_station_involved = TOS_NODE_ID;
 				}
 				else
-					mes_station_involved = 0;
+					if(!(tr_station || crash_station || wip_station))
+						mes_station_involved = 0;
 			}
 		}
 		return msg;
