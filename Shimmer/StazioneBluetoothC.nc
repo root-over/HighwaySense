@@ -10,6 +10,7 @@
 #define MAX_ID_CAR 200
 #define NUM_CAR_MIN_TRAFFIC 2
 #define ID_FOR_CHANGE_WORK 199
+#define NUM_MAX_FOR_STATION_PROBLEM 200
 
 module StazioneBluetoothC {
   uses {
@@ -37,7 +38,9 @@ implementation {
   bool work_in_progress, wip_car, wip_station;
   bool sos, sos_car, sos_station;
   bool mes_from_broad;
+  bool next_station_problem;
   uint16_t mes_station_involved, mes_station;
+  uint8_t count_car_before_st_mex = NUM_MAX_FOR_STATION_PROBLEM;
 
   uint16_t idAutoInc = 0;
   int static counttra = 0;
@@ -220,62 +223,73 @@ implementation {
   event void AMSend.sendDone(message_t* msg, error_t code) {
   }
 
-  event message_t* Receive.receive(message_t* msg, void* payload, uint8_t payloadLength) {
-    if (payloadLength == sizeof(MyPayload)) {
-      pktReceivedFromCar = (MyPayload*)payload;
-      
-      // If it's station's message:
-      if ((pktReceivedFromCar->myNodeid == TOS_NODE_ID + 1) && !mes_from_broad) {
-        tr_station = pktReceivedFromCar->traffic;
-        crash_station = pktReceivedFromCar->crash;
-        wip_station = pktReceivedFromCar->work_in_progress;
-        sos_station = pktReceivedFromCar->sos;
-        mes_station = pktReceivedFromCar->mes_station_involved;
-      }
-      
-      // If it's car's message:
-      if ((pktReceivedFromCar->myNodeid > MIN_ID_CAR) && (pktReceivedFromCar->myNodeid < MAX_ID_CAR)) {
-        current_car.car_id = pktReceivedFromCar->myNodeid;
-        current_car.crash = pktReceivedFromCar->crash;
-        current_car.sos = pktReceivedFromCar->sos;
-        sos_car = current_car.sos;
-        
-        // Special ID for change work in progress
-        if (pktReceivedFromCar->myNodeid == ID_FOR_CHANGE_WORK)
-          wip_car = pktReceivedFromCar->work_in_progress;
-        else { // Insert car into the buffer
-          wip_car = work_in_progress;
-          buffer_cars[j] = current_car;
-          j++;
-          j = j % NUM_MAX_CAR;
-        }
-      }
-      
-      traffic = tr_station;
-      crash = crash_station;
-      work_in_progress = wip_station;
-      sos = sos_station;
-      mes_station_involved = mes_station;
-      
-      post trafficControl();
+  	event message_t* Receive.receive(message_t* msg, void* payload, uint8_t payloadLength){
+		if (payloadLength == sizeof(MyPayload)){
+			pktReceivedFromCar = (MyPayload*)payload;
+			
+			//If it's station's message:
+			if((pktReceivedFromCar->myNodeid == TOS_NODE_ID + 1) && !mes_from_broad){
+				count_car_before_st_mex = NUM_MAX_FOR_STATION_PROBLEM;
+				tr_station = pktReceivedFromCar->traffic;
+				crash_station = pktReceivedFromCar->crash;
+				wip_station = pktReceivedFromCar->work_in_progress;
+				sos_station = pktReceivedFromCar->sos;
+				next_station_problem = pktReceivedFromCar->next_station_problem;
+				mes_station = pktReceivedFromCar->mes_station_involved;
+			}
+			
+			//If it's car's message:
+			if((pktReceivedFromCar->myNodeid > MIN_ID_CAR) && (pktReceivedFromCar->myNodeid < MAX_ID_CAR)){
+				count_car_before_st_mex--;
+				current_car.car_id = pktReceivedFromCar->myNodeid;
+				current_car.crash = pktReceivedFromCar->crash;
+				current_car.sos = pktReceivedFromCar->sos;
+				sos_car = current_car.sos;
+				
+				//Special ID for change work in progress
+				if(pktReceivedFromCar->myNodeid == ID_FOR_CHANGE_WORK)
+					wip_car = pktReceivedFromCar->work_in_progress;
+				else{//Insert car into the buffer
+					wip_car = work_in_progress;
+					buffer_cars[j] = current_car;
+					j++;
+					j = j % NUM_MAX_CAR;
+				}
+			}
+			
+			traffic = tr_station;
+			crash = crash_station;
+			work_in_progress = wip_station;
+			sos = sos_station;
+			mes_station_involved = mes_station;
+			
+			post trafficControl();
 
-      if (current_car.crash)
-        crashed_car = current_car.car_id;
-      
-      post incidentControl();
-      
-      if (!(sos_station)) {
-        if (tr_car || crash_car || sos_car || wip_car) {
-          traffic = tr_car;
-          crash = crash_car;
-          work_in_progress = wip_car;
-          sos = sos_car;
-          mes_station_involved = TOS_NODE_ID;
-        } else {
-          mes_station_involved = 0;
-        }
-      }
-    }
-    return msg;
-  }
+			if(current_car.crash)
+				crashed_car = current_car.car_id;
+				
+			post incidentControl();
+			
+			if(!(sos_station)){
+				if (tr_car || crash_car || sos_car || wip_car){
+					traffic = tr_car;
+					crash = crash_car;
+					work_in_progress = wip_car;
+					sos = sos_car;
+					mes_station_involved = TOS_NODE_ID;
+				}
+				else
+					if(!(tr_station || crash_station || wip_station))
+						mes_station_involved = 0;
+			}
+
+			if(count_car_before_st_mex<0){
+				next_station_problem = TRUE;
+				mes_station_involved = TOS_NODE_ID + 1;
+			}else
+				next_station_problem = FALSE;
+		}
+		return msg;
+	}
+
 }
