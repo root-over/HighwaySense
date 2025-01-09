@@ -5,12 +5,12 @@ enum {MESSAGE_TYPE = 20};
 
 typedef nx_struct MyPayload {
 	nx_uint16_t myNodeid;
-	nx_bool traffico;
-	nx_bool incidente;
-	nx_bool lavori_in_corso;
+	nx_bool traffic;
+	nx_bool crash;
+	nx_bool work_in_progress;
 	nx_bool sos;
 	nx_bool broad;
-	nx_uint16_t mes_Aggiuntivo;
+	nx_uint16_t mes_station_involved;
 } MyPayload;
 
 #endif
