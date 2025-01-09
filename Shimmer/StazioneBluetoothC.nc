@@ -109,8 +109,8 @@ implementation {
     if ((work_in_progress == 1 && countlav < 3) ||
         (crash == 1 && countinc < 3) ||
         (traffic == 1 && counttra < 3)) {
+      
       sprintf(localbuffer, " Attenzione ");
-
       if (work_in_progress == 1 && countlav < 3) {
         strcat(localbuffer, " ci sono lavori in corso\r\n");
         countlav += 1;
