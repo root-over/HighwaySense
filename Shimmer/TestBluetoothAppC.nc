@@ -1,43 +1,31 @@
-configuration TestBluetoothAppC {
+configuration StazioneBluetoothAppC {
 }
 
 implementation {
-  components MainC, TestBluetoothC;
-  TestBluetoothC -> MainC.Boot;
-
+  components MainC, StazioneBluetoothC;
+  StazioneBluetoothC -> MainC.Boot;
   components new TimerMilliC() as ResetTimer;
-  TestBluetoothC.ResetTimer -> ResetTimer;
-  components new TimerMilliC() as ResetTimerB;
-  TestBluetoothC.ResetTimerB -> ResetTimerB;
+  StazioneBluetoothC.ResetTimer -> ResetTimer;
+  components new TimerMilliC() as RadioTimer;
+  StazioneBluetoothC.RadioTimer -> RadioTimer;
 
   components LedsC;
-  TestBluetoothC.Leds -> LedsC;
+  StazioneBluetoothC.Leds -> LedsC;
 
   components new TimerMilliC() as activityTimer;
-  TestBluetoothC.activityTimer -> activityTimer;
+  StazioneBluetoothC.activityTimer -> activityTimer;
 
   components PrintfC, SerialStartC;
-
-	
-
   components ActiveMessageC;
-
-  components new AMSenderC(MESSAGE_TYPE);//numero libero tra 0 e 255
-
+  components new AMSenderC(MESSAGE_TYPE);
   components new AMReceiverC(MESSAGE_TYPE);
 
-	
-
-  TestBluetoothC.Radio -> ActiveMessageC;
-
-  TestBluetoothC.Packet -> AMSenderC;
-
-  TestBluetoothC.AMSend -> AMSenderC;
-
-  TestBluetoothC.Receive -> AMReceiverC;
-  
+	StazioneBluetoothC.Radio -> ActiveMessageC;
+  StazioneBluetoothC.Packet -> AMSenderC;
+  StazioneBluetoothC.AMSend -> AMSenderC;
+  StazioneBluetoothC.Receive -> AMReceiverC;
   components RovingNetworksC;
-  TestBluetoothC.BluetoothInit -> RovingNetworksC.Init;
-  TestBluetoothC.BTStdControl -> RovingNetworksC.StdControl;
-  TestBluetoothC.Bluetooth    -> RovingNetworksC;
+  StazioneBluetoothC.BluetoothInit -> RovingNetworksC.Init;
+  StazioneBluetoothC.BTStdControl -> RovingNetworksC.StdControl;
+  StazioneBluetoothC.Bluetooth    -> RovingNetworksC;
 }

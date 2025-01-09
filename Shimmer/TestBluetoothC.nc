@@ -4,13 +4,15 @@
 #include "printf.h"
 
 
-#define PERIOD_BROADCAST 500
-#define PERIOD_INTERCOMUNICATION 3000
+#define BLUETOOTH_TIMER 1000
+#define WRITE_TIMER 15000
+#define RADIO_TIMER 30000
 #define MIN_ID_CAR 20
 #define MAX_ID_CAR 200
 #define NUM_CAR_MIN_TRAFFIC 2
+#define ID_FOR_CHANGE_WORK 199
 
-module TestBluetoothC {
+module StazioneBluetoothC {
   uses {
     interface Boot;
     interface Leds;
@@ -19,7 +21,7 @@ module TestBluetoothC {
     interface Bluetooth;
     interface Timer<TMilli> as activityTimer;
     interface Timer<TMilli> as ResetTimer;
-    interface Timer<TMilli> as ResetTimerB;
+    interface Timer<TMilli> as RadioTimer;
     interface SplitControl as Radio;
     interface Packet;
     interface AMSend;
@@ -31,13 +33,13 @@ module TestBluetoothC {
 implementation {
   uint8_t j = 0;
 	
-  uint16_t myNodeid, id_corr;
-  bool traffico, tr_car, tr_pole;
-  bool incidente, inc_car, inc_pole;
-  bool lavori_in_corso, lav_car, lav_pole;
-  bool sos, sos_car, sos_pole;
+  uint16_t myNodeid, id_corr, crashed_car;
+  bool traffic, tr_car, tr_station;
+  bool crash, crash_car, crash_station;
+  bool work_in_progress, wip_car, wip_station;
+  bool sos, sos_car, sos_station;
   bool mes_from_broad;
-  uint16_t mes_Aggiuntivo, mes_pole;
+  uint16_t mes_station_involved, mes_station;
 	
   uint16_t idAutoInc = 0;
   int static counttra=0;
@@ -47,71 +49,57 @@ implementation {
   message_t broad;
   MyPayload* streetState;
   MyPayload* pktReceivedFromCar;
-  Auto autoCorrente;
-  Auto numAutoPresenti[NUM_MAX_AUTO];
-  bool connected = FALSE; // Stato della connessione
+  Auto current_car;
+  Auto buffer_cars[NUM_MAX_CAR];
+  bool connected = FALSE; 
   char buffer[20];
   event void Boot.booted() { 
-    // Configurazione del modulo Bluetooth
     call BluetoothInit.init();
-    call Bluetooth.setRadioMode(SLAVE_MODE); // Modalità slave
-    call Bluetooth.setName("Shimmerfra");   // Nome del dispositivo
-    // Concatenazione dei messaggi nel buffer
+    call Bluetooth.setRadioMode(SLAVE_MODE); 
+    call Bluetooth.setName("Shimmerfra"); 
     call BTStdControl.start();
     strcpy(buffer, "HighwaySense\r\n");
     connected = TRUE;
-    call activityTimer.startPeriodic(1000); // 1000 ms = 1 secondo
-    call ResetTimer.startOneShot(25000);
-    call ResetTimerB.startOneShot(30000);
-
-    
+    call activityTimer.startPeriodic(BLUETOOTH_TIMER); 
+    call ResetTimer.startOneShot(WRITE_TIMER);
+    call RadioTimer.startOneShot(RADIO_TIMER);    
 }
 
-task void controlloTraffico(){
+//TASKS
+	task void trafficControl(){
 		uint8_t i = 0, a = 0, count_car_traffic = 0;
 		uint8_t id_founded_car = 0;
-		numAutoPresenti[j] = autoCorrente;
-		printf("Ho inserito l'auto %u nel buffer del palo corrente\n", autoCorrente.autoid);
-		j++;
-		j = j % NUM_MAX_AUTO;
-		  
-		for (i=0; i<NUM_MAX_AUTO && numAutoPresenti[i].autoid > 0; i++){
-			for (a=i+1; a<NUM_MAX_AUTO && numAutoPresenti[a].autoid > 0; a++){
-				if (numAutoPresenti[i].autoid == numAutoPresenti[a].autoid && id_founded_car != numAutoPresenti[i].autoid){
-					printf("Ho trovato auto con id: %u all'interno del buffer del palo\n",numAutoPresenti[i].autoid);
-					id_founded_car = numAutoPresenti[i].autoid;
+		
+		for (i=0; i<NUM_MAX_CAR && buffer_cars[i].car_id > 0; i++){
+			for (a=i+1; a<NUM_MAX_CAR && buffer_cars[a].car_id > 0; a++){
+				if (buffer_cars[i].car_id == buffer_cars[a].car_id && crashed_car != buffer_cars[i].car_id){
+					id_founded_car = buffer_cars[i].car_id;
 					count_car_traffic++;
 					if (count_car_traffic >= NUM_CAR_MIN_TRAFFIC){
-						printf("Traffico\n");
+						printf("Traffico!\n");
 						tr_car = TRUE;
-						printfflush();
 						return;
 					}
 					break;
 				}
 			}
+			id_founded_car = 0;
 		}
-			
-		traffico = FALSE;
-		printf("Non ho trovato traffico\n");
+		tr_car = FALSE;
 		printfflush();
 		return;
 	}
 	
-	task void controlloIncidente(){
-                char localbuffer[30]; 
+	task void incidentControl(){
 		uint8_t i;
-		for (i=0; i<NUM_MAX_AUTO && numAutoPresenti[i].autoid > 0; i++)
-			if(numAutoPresenti[i].autoid == idAutoInc){
-				printf("Auto incidentata\n");
-				inc_car = TRUE;
-				printfflush();
+		for (i=0; i<NUM_MAX_CAR && buffer_cars[i].car_id > 0; i++)
+			if(buffer_cars[i].car_id == crashed_car){
+				printf("Incidente\n");
+				crash_car = TRUE;
 				return;
 			}
-		printf("Nessuna auto incidentata\n");
-		printfflush();
-		inc_car = FALSE;
-		idAutoInc = 0;
+		crash_car = FALSE;
+		crashed_car = 0;
 		return;
 	}
 
@@ -119,39 +107,36 @@ task void controlloTraffico(){
     char localbuffer[100]; 
     int len;             
 
- if ((lavori_in_corso == 1 && countlav < 3) ||
-        (incidente == 1 && countinc < 3) ||
-        (traffico == 1 && counttra < 3)) {
-        
+ if ((work_in_progress == 1 && countlav < 3) ||
+        (crash == 1 && countinc < 3) ||
+        (traffic == 1 && counttra < 3)) {
         sprintf(localbuffer, " Attenzione ");
         
-        if (lavori_in_corso == 1 && countlav < 3) {
+        if (work_in_progress == 1 && countlav < 3) {
             strcat(localbuffer, " ci sono lavori in corso\r\n");
             countlav += 1;
         }
-        if (incidente == 1 && countinc < 3) {
-            strcat(localbuffer, " c'è un incidente\r\n");
+        if (crash == 1 && countinc < 3) {
+            strcat(localbuffer, " c'è un crash\r\n");
             countinc += 1;
         }
-        if (traffico == 1 && counttra < 3) {
-            strcat(localbuffer, " possibile traffico ");
+        if (traffic == 1 && counttra < 3) {
+            strcat(localbuffer, " possibile traffic ");
             counttra += 1;
         }
 
         strcat(localbuffer, "piu avanti, fare attenzione!\r\n");
-
-        // Scrittura del messaggio via Bluetooth
         call Bluetooth.write((const uint8_t *)localbuffer, strlen(localbuffer));
     }
  
     len = sprintf(localbuffer, 
                   "MyNode: %d, Traf: %d, Inc: %d, Lav: %d, Sos: %d, Palo: %d\r\n", 
-                  TOS_NODE_ID, traffico, incidente, lavori_in_corso, sos, mes_Aggiuntivo);
+                  TOS_NODE_ID, traffic, crash, work_in_progress, sos, mes_station_involved);
 
-    if (len > 0 && len < sizeof(localbuffer)) { // Controlla che sprintf non abbia superato il buffer
+    if (len > 0 && len < sizeof(localbuffer)) {
         if (connected) {
             if (call Bluetooth.write((const uint8_t *)localbuffer, strlen(localbuffer)) == SUCCESS) {
-                call Leds.led1Toggle(); // Indica che il messaggio è stato inviato
+                call Leds.led1Toggle();
             } else {
                 call Leds.led0On();
             }
@@ -159,61 +144,44 @@ task void controlloTraffico(){
     } else {
         call Leds.led2On();
     }
-  
-
 }
 
 event void ResetTimer.fired() {
-    // Resetta i contatori
     counttra = 0;
     countlav = 0;
     countinc = 0;
-
-    // Riavvia il timer per altri 15 secondi
-    call ResetTimer.startOneShot(15000); 
+    call ResetTimer.startOneShot(WRITE_TIMER); 
 }
 
-event void ResetTimerB.fired() {
-    call BTStdControl.stop(); // Spegne il Bluetooth
+event void RadioTimer.fired() {
+    call BTStdControl.stop();
     call Radio.start();
     streetState = (MyPayload*)(call Packet.getPayload( &broad, sizeof(MyPayload)));
     streetState->myNodeid = TOS_NODE_ID;
-    streetState->traffico = traffico;
-    streetState->incidente = incidente;
-    streetState->lavori_in_corso = lavori_in_corso;
+    streetState->traffic = traffic;
+    streetState->crash = crash;
+    streetState->work_in_progress = work_in_progress;
     streetState->sos = sos;
     streetState->broad = TRUE;
-    streetState->mes_Aggiuntivo = mes_Aggiuntivo;
-    printf("MyNode: %d, Traf: %d, Inc: %d, Lav: %d, Sos: %d, Palo: %d",TOS_NODE_ID,traffico,incidente,lavori_in_corso,sos,mes_Aggiuntivo);
-    printf("-Messaggio broadcast\n");
-    printfflush();
+    streetState->mes_station_involved = mes_station_involved;
     call AMSend.send(ID_BROADCAST, &broad, sizeof(MyPayload));
-    
-    // Riavvia il timer per altri 30 secondi
-    call ResetTimerB.startOneShot(30000); 
+    call RadioTimer.startOneShot(RADIO_TIMER); 
     
 }
-
-
 
 event void activityTimer.fired() {
     call Radio.stop();
     call BTStdControl.start();
-    post sendStuff();  // Invia i messaggi Bluetooth
+    post sendStuff();  
 }
 
-
-
-  async event void Bluetooth.connectionMade(uint8_t status) { 
+async event void Bluetooth.connectionMade(uint8_t status) { 
     call Leds.led0On();  
     call Leds.led2Off();  
   }
 
-
-  async event void Bluetooth.connectionClosed(uint8_t reason) {
-    connected = FALSE; // Stato della connessione aggiornato
-    call Leds.led0Off();  // LED spento per indicare disconnessione
-    call Leds.led2On();   // LED acceso per indicare disconnessione
+ async event void Bluetooth.connectionClosed(uint8_t reason) {
+    connected = FALSE;  
     call activityTimer.stop(); 
     call Bluetooth.write((const uint8_t *)"Disconnected!\r", 14);
   }
@@ -223,7 +191,7 @@ event void activityTimer.fired() {
   }
 
   event void Bluetooth.writeDone() {
-    call Leds.led1Toggle(); // Indica successo
+    call Leds.led1Toggle();
   }
 
   async event void Bluetooth.commandModeEnded() { 
@@ -231,116 +199,86 @@ event void activityTimer.fired() {
   }
 
  event void Radio.startDone(error_t code){
-                
-		printf("Radio avviata ");
 		if(code == SUCCESS){
-			printf("con successo\n");
 			call Leds.led1On();
 		}else{
-			printf("con errore\n");
+			printf("errore\n");
 		}
-		printfflush();
 	}
 	
 	event void Radio.stopDone(error_t code){
-		printf("Radio spenta ");
 		if(code == SUCCESS){
-                        call BluetoothInit.init();
-                        call Bluetooth.setRadioMode(SLAVE_MODE); 
-                        call Bluetooth.setName("Shimmerfra"); 
-                        call BTStdControl.start();
+      call BluetoothInit.init();
+      call Bluetooth.setRadioMode(SLAVE_MODE); 
+      call Bluetooth.setName("Shimmerfra"); 
+      call BTStdControl.start();
 			printf("con successo\n");
 			call Leds.led1Off();
 		}else{
-			printf("con errore\n");
+			printf("errore\n");
 		}
-		printfflush();
 	}
 	
 	event void AMSend.sendDone(message_t* msg, error_t code){
-
-		//printf("Send del messaggio avvenuta ");
-		if(code == SUCCESS){
-			//printf("con successo\n");
-			//call Leds.led2Toggle();
-		}else{
-			//printf("con errore\n");
-		}
-		//printfflush();
 	}
 	
-	event message_t* Receive.receive(message_t* msg, void* payload, uint8_t payloadLength){
+event message_t* Receive.receive(message_t* msg, void* payload, uint8_t payloadLength){
 		if (payloadLength == sizeof(MyPayload)){
 			pktReceivedFromCar = (MyPayload*)payload;
 			
-			//Se ho ricevuto il pacchetto dal palo successivo:
+			//If it's station's message:
 			if((pktReceivedFromCar->myNodeid == TOS_NODE_ID + 1) && !mes_from_broad){
-				//Mi memorizzo i messaggi in arrivo dal palo e non faccio nessun controllo
-				tr_pole = pktReceivedFromCar->traffico;
-				inc_pole = pktReceivedFromCar->incidente;
-				lav_pole = pktReceivedFromCar->lavori_in_corso;
-				sos_pole = pktReceivedFromCar->sos;
-				mes_pole = pktReceivedFromCar->mes_Aggiuntivo;
-			
-			
-				printf("Pacchetto arrivato dal palo\n");
-				call Leds.led0Toggle();
-				
-				printfflush();
+				tr_station = pktReceivedFromCar->traffic;
+				crash_station = pktReceivedFromCar->crash;
+				wip_station = pktReceivedFromCar->work_in_progress;
+				sos_station = pktReceivedFromCar->sos;
+				mes_station = pktReceivedFromCar->mes_station_involved;
 			}
 			
-			//Se ho ricevuto il pacchetto da un'auto:
+			//If it's car's message:
 			if((pktReceivedFromCar->myNodeid > MIN_ID_CAR) && (pktReceivedFromCar->myNodeid < MAX_ID_CAR)){
-				printf("Pacchetto arrivato da un'auto\n");
-				call Leds.led2Toggle();
+				current_car.car_id = pktReceivedFromCar->myNodeid;
+				current_car.crash = pktReceivedFromCar->crash;
+				current_car.sos = pktReceivedFromCar->sos;
+				sos_car = current_car.sos;
 				
-				//Memororizzo i dati delle auto e non faccio nessun controllo
-				
-				autoCorrente.autoid = pktReceivedFromCar->myNodeid;
-				autoCorrente.incidente = pktReceivedFromCar->incidente;
-				autoCorrente.sos = pktReceivedFromCar->sos;
-				sos_car = autoCorrente.sos;
-				
-				if(pktReceivedFromCar->myNodeid == 199)
-					lav_car = pktReceivedFromCar->lavori_in_corso;
-				//Mi serve a settare i lavori
-				
-				printfflush();
+				//Special ID for change work in progress
+				if(pktReceivedFromCar->myNodeid == ID_FOR_CHANGE_WORK)
+					wip_car = pktReceivedFromCar->work_in_progress;
+				else{//Insert car into the buffer
+					wip_car = work_in_progress;
+					buffer_cars[j] = current_car;
+					j++;
+					j = j % NUM_MAX_CAR;
+				}
 			}
 			
-			traffico = tr_pole;
-			incidente = inc_pole;
-			lavori_in_corso = lav_pole;
-			sos = sos_pole;
-			mes_Aggiuntivo = mes_pole;
-			post controlloTraffico();
-			//Se ha avuto efficacia avrò tr_car = TRUE
+			traffic = tr_station;
+			crash = crash_station;
+			work_in_progress = wip_station;
+			sos = sos_station;
+			mes_station_involved = mes_station;
 			
-			if(autoCorrente.incidente)
-				idAutoInc = autoCorrente.autoid;
-			post controlloIncidente();
-			//Se ha avuto successo avrò inc_car = TRUE
+			post trafficControl();
+
+			if(current_car.crash)
+				crashed_car = current_car.car_id;
+				
+			post incidentControl();
 			
-			if(!(sos_pole)){
-				if (tr_car || inc_car || sos_car || lav_car){
-					traffico = tr_car;
-					incidente = inc_car;
-					lavori_in_corso = lav_car;
+			if(!(sos_station)){
+				if (tr_car || crash_car || sos_car || wip_car){
+					traffic = tr_car;
+					crash = crash_car;
+					work_in_progress = wip_car;
 					sos = sos_car;
-					mes_Aggiuntivo = TOS_NODE_ID;
+					mes_station_involved = TOS_NODE_ID;
 				}
 				else
-					mes_Aggiuntivo = 0;
+					mes_station_involved = 0;
 			}
-				
-			
-			printfflush();
-			//Se è un messaggio da evitare termina la Receive
-                        
-			
 		}
 		return msg;
-                
 	}
 
 

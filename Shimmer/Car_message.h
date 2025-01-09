@@ -2,8 +2,8 @@
 #define CAR_MESSAGE_H
 
 typedef struct Auto {
-	uint16_t autoid;
-	bool incidente;
+	uint16_t car_id;
+	bool crash;
 	bool sos;
 } Auto;
 
