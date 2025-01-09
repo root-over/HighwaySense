@@ -85,7 +85,7 @@ implementation {
 		pktToSend->sos = FALSE;
 		pktToSend->work_in_progress = FALSE;
 		pktToSend->broad = FALSE;
-		pktToSend->prev_station_problem = FALSE;
+		pktToSend->next_station_problem = FALSE;
 		pktToSend->mes_station_involved = 0;
 		call TimerReceived.startPeriodic(PERIOD_FROM_CAR);
 	}
