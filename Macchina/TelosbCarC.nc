@@ -85,6 +85,7 @@ implementation {
 		pktToSend->sos = FALSE;
 		pktToSend->work_in_progress = FALSE;
 		pktToSend->broad = FALSE;
+		pktToSend->prev_station_problem = FALSE;
 		pktToSend->mes_station_involved = 0;
 		call TimerReceived.startPeriodic(PERIOD_FROM_CAR);
 	}
@@ -133,41 +134,41 @@ implementation {
 		if (payloadLength == sizeof(MyPayload)){
 			pktReceived = (MyPayload*)payload;
             
-            	mex_to_car = 0;
-            	if (pktReceived->traffic)
-                	mex_to_car |= 1 << 0;
-            	if (pktReceived->crash)
-                	mex_to_car |= 1 << 1;
-            	if (pktReceived->work_in_progress)
-               		mex_to_car |= 1 << 2;
-            	if (pktReceived->sos)
-                	mex_to_car |= 1 << 3;
-
-            	if (mex_to_car & (1 << 0)) { //Messaggi che vanno mandati all'esp per notificare la macchina
-                //Metto 1 nel bit 1 del messaggio da mandare all'esp via uart 
-                		printf("Traffic\n");
-                		DataUart[1]=1;
-            	}else{
-                		DataUart[1]=0;
-            	}
-            	if (mex_to_car & (1 << 1)) {
-		          	printf("Crash\n");
-		          	DataUart[2]=1;
-		      }else{
-               		DataUart[2]=0;
-            	}
-            	if (mex_to_car & (1 << 2)) {
-                		printf("Work in progress\n");
-               		DataUart[3]=1;
-            	}else{
-                		DataUart[3]=0;
-            	}
-            	if (mex_to_car & (1 << 3)) {
-		          	printf("SOS\n");
-		          	DataUart[4]=1;
-            	}else{
-                		DataUart[4]=0;
-            	}
+	            	mex_to_car = 0;
+	            	if (pktReceived->traffic)
+	                	mex_to_car |= 1 << 0;
+	            	if (pktReceived->crash)
+	                	mex_to_car |= 1 << 1;
+	            	if (pktReceived->work_in_progress)
+	               		mex_to_car |= 1 << 2;
+	            	if (pktReceived->sos)
+	                	mex_to_car |= 1 << 3;
+	
+	            	if (mex_to_car & (1 << 0)) { //Messaggi che vanno mandati all'esp per notificare la macchina
+	                //Metto 1 nel bit 1 del messaggio da mandare all'esp via uart 
+	                	printf("Traffic\n");
+	                	DataUart[1]=1;
+	            	}else{
+	                	DataUart[1]=0;
+	            	}
+	            	if (mex_to_car & (1 << 1)) {
+			        printf("Crash\n");
+			        DataUart[2]=1;
+			}else{
+	               		DataUart[2]=0;
+	            	}
+	            	if (mex_to_car & (1 << 2)) {
+	                	printf("Work in progress\n");
+	               		DataUart[3]=1;
+	            	}else{
+	                	DataUart[3]=0;
+	            	}
+	            	if (mex_to_car & (1 << 3)) {
+			        printf("SOS\n");
+			        DataUart[4]=1;
+	            	}else{
+	                	DataUart[4]=0;
+	            	}
             	
 			call AMSend.send(pktReceived->myNodeid, &pkt_to_send, sizeof(MyPayload)); 
 		}
