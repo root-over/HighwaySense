@@ -18,9 +18,9 @@ const long interval = 1000;        // Intervallo di tempo
 #define CAN0_INT 4                             
 MCP_CAN CAN0(5);                               
 
-int Velocita = 0;
+int Speed = 0;
 int Rpm = 0;
-int Marcia = 0;
+int Gear = 0;
 
 // Funzione per inviare un messaggio via UART e verificare se il messaggio è stato inviato con successo
 bool sendUartMessage(const char* message) {
@@ -43,7 +43,7 @@ void receiveUartData() {
                 
                 Serial.print(" \n");
                 byte sndStat = CAN0.sendMsgBuf(0x100, 0, 6, data); // invio il messaggio via CAN
-                // TODO dal cluster leggere il messaggio ricevuto ed interpretarlo di conseguenza
+          
                 if(sndStat == CAN_OK){
                   Serial.println("Messagio CAN inviato alla macchina!");
                 } else {
@@ -77,20 +77,20 @@ void loop()
   {
     CAN0.readMsgBuf(&rxId, &len, rxBuf);
 
-    if(rxId == 0x351) Velocita = int(rxBuf[1]);
-    if(rxId == 0x359) Marcia = int(rxBuf[7]);
+    if(rxId == 0x351) Speed = int(rxBuf[1]);
+    if(rxId == 0x359) Gear = int(rxBuf[7]);
     if(rxId == 0x35B) Rpm = int(rxBuf[1]);
     
-    if (Marcia == 96) {
+    if (Gear == 96) {
       message = "Incidente";
     } 
-    else if (Rpm > 0 && Velocita == 0) {
+    else if (Rpm > 0 && Speed == 0) {
       message = "Traffico";
     } 
-    else if (Rpm == 0 && Velocita == 0) {
+    else if (Rpm == 0 && Speed == 0) {
       message = "SOS";
     } 
-    else if (Rpm > 0 && Velocita > 0) {
+    else if (Rpm > 0 && Speed > 0) {
       message = "OK";
       
     }
