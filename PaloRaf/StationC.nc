@@ -24,7 +24,6 @@ module StationC{
 implementation{
 	uint8_t j = 0;
 	
-	uint16_t my_node_id, id_corr;
 	bool traffic, tr_car, tr_station;
 	bool crash, crash_car, crash_station;
 	bool work_in_progress, wip_car, wip_station;
