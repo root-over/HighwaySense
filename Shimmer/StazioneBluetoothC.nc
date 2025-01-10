@@ -166,6 +166,7 @@ implementation {
     streetState->sos = sos;
     streetState->broad = TRUE;
     streetState->mes_station_involved = mes_station_involved;
+    streetState->next_station_problem = FALSE;
     call AMSend.send(ID_BROADCAST, &broad, sizeof(MyPayload));
     call RadioTimer.startOneShot(RADIO_TIMER); 
   }
